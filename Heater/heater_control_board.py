@@ -1,4 +1,5 @@
 from sys import stdin, stdout, exit
+import time
 import select
 import gc
 import ujson
@@ -6,14 +7,61 @@ import machine
 from high_power_heater_v2 import High_power_heater_board
 from bh2221 import BH2221
 
+
+#Import Json file
+config = ujson.load(open('heater_config.json', 'r'))
+#Funciton Builds heater dict
+def build_heaters(config):
+    heater_dict = {}
+    hp_heater_list = []
+    lph_list = []
+    for i in range(len(config['heaters'])):
+        name = config['heaters'][i]
+        heater_dict[name] = {
+                "qtpy pinout" : config['qtpy pinout'][i],
+                'machine number': config['machine number'][i],
+                'address' : config['address'][i],
+            }            
+        if heater_dict[name]['machine number'] >= 0:
+            heater_object = High_power_heater_board(out_pin = heater_dict[name]['qtpy pinout'][0],
+                                        enable_pin = heater_dict[name]['qtpy pinout'][1],
+                                        machine_number = heater_dict[name]['machine number'],
+                                        addr = heater_dict[name]['address'], name = name)
+            
+            heater_dict[name]['heater object'] = heater_object
+            hp_heater_list.append(heater_object)
+            
+        else:
+            lph_list.append(name)
+        
+        
+    return heater_dict, hp_heater_list, lph_list
+
+heater_dict, heaters, lph_list = build_heaters(config)
+
+
+'''
 heaters = [
-    High_power_heater_board(29, 28, machine_number=0, addr=0x40 ),
-    High_power_heater_board(27, 26, machine_number=1, addr=0x41), #, name = '3PumpHeaterA'),
-    High_power_heater_board(24, 25, machine_number=2, addr=0x44), #, name = '4PumpHeaterB'),
-    High_power_heater_board(3, 4, machine_number=3, addr=0x45)#, name = '3PumpHeaterB')
+    High_power_heater_board(29, 28, machine_number=0, addr=0x40, name = '4PUMPA' ),#4pumpA
+    High_power_heater_board(27, 26, machine_number=1, addr=0x45, name = '3PUMPA'), #3PumpA
+    High_power_heater_board(24, 25, machine_number=2, addr=0x44, name = '4PUMPB'), #4PumpB
+    High_power_heater_board(3, 4, machine_number=3, addr=0x41, name = '3PUMPB'),   #3PumpB
     ]
+'''
+
+def heater_state_check():
+    for heater in heaters:
+        if heater.i > 50:
+            heater.disable()
+            time.sleep(0.1)
+            heater.reset()
+            #writeUSB(f'Heater [{hex(heater.addr)}, {heater.name}] exceeded 50mA')
+            #Commented this out to not have read errors. Could be usful to see when heater boards power cycle. 
+
+    
 # heaters = [heater]
 lph = BH2221(out=20, clk_ld=5)
+#lph_list=['4SWITCHA', '3SWITCHA', '4SWITCHB', '3SWITCHB', 'STILL']
 
 def readUSB():
     global ONCE, CONTINUOUS, last
@@ -67,7 +115,7 @@ def do_command(cmd):
             if len(params)>0:
                 channel = int(params[0])
                 if channel < len(heaters):
-                    writeUSB([heaters[channel].v, heaters[channel].i])
+                    writeUSB({heaters[channel].name: {'v': heaters[channel].v, 'i':heaters[channel].i}})
                 else:
                     writeUSB('bad command')
             else:
@@ -107,8 +155,11 @@ def do_command(cmd):
                 writeUSB('bad command')
         elif (cmd=="LPH?"):
             if len(params)>0:
-                channel = int(params[0])
-                writeUSB(lph.get_channel(channel))
+                if int(params[0]) > 0:
+                    channel = int(params[0])
+                    writeUSB({lph_list[channel-1]: lph.get_channel(channel)})
+                else:
+                    writeUSB('bad command')
             else:
                 writeUSB('bad command')
         elif (cmd=="LPH"):
@@ -141,4 +192,5 @@ def do_command(cmd):
             writeUSB('not understood')
 
 while True:
+    heater_state_check()
     readUSB()

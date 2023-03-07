@@ -7,7 +7,7 @@ import ujson
 import machine
 
 class High_power_heater_board:
-    def __init__(self, out_pin, enable_pin, machine_number=0, i2c=None, addr=64, ina219=True):
+    def __init__(self, out_pin, enable_pin, machine_number=0, i2c=None, addr=64, ina219=True, name = None):
         """
             class High_power_heater
             out_pin is the pin number to configure the heater
@@ -32,7 +32,7 @@ class High_power_heater_board:
             # qtpy
             self.i2c = I2C(1, scl=machine.Pin(23), sda=machine.Pin(22))
         self.INA219 = ina219
-        self.name = 'heater'
+        self.name = name
         self.addr = addr
         self.enabled = True
         self.reset()
