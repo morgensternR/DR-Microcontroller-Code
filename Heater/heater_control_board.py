@@ -48,12 +48,11 @@ heaters = [
     High_power_heater_board(3, 4, machine_number=3, addr=0x41, name = '3PUMPB'),   #3PumpB
     ]
 '''
-
+hph_i_limit =50
 def heater_state_check():
+    global hph_i_limit
     for heater in heaters:
-        if heater.i > 50:
-            heater.disable()
-            time.sleep(0.1)
+        if heater.i > hph_i_limit:
             heater.reset()
             #writeUSB(f'Heater [{hex(heater.addr)}, {heater.name}] exceeded 50mA')
             #Commented this out to not have read errors. Could be usful to see when heater boards power cycle. 
@@ -64,7 +63,7 @@ lph = BH2221(out=20, clk_ld=5)
 #lph_list=['4SWITCHA', '3SWITCHA', '4SWITCHB', '3SWITCHB', 'STILL']
 
 def readUSB():
-    global ONCE, CONTINUOUS, last
+    global ONCE, CONTINUOUS, last, hph_i_limit
     gc.collect()
     while stdin in select.select([stdin], [], [], 0)[0]:
         #print('Got USB serial message')
@@ -94,12 +93,6 @@ def do_command(cmd):
             exit(0)
         elif (cmd=='*IDN?'):
             writeUSB('heater_control_board')
-        elif (cmd=='NAME?'):
-            if len(params)>0:
-                channel = int(params[0])
-                writeUSB(heaters[channel].name)
-            else:
-                writeUSB('bad command')
         elif (cmd=='PING'):
             writeUSB('PONG')
         elif (cmd=="I?"):
@@ -135,7 +128,7 @@ def do_command(cmd):
         elif (cmd=="I"):
             if len(params)>1:
                 channel = int(params[0])
-                dac_value = int(params[1])
+                dac_value = int(float(params[1]))
                 heaters[channel].dac = dac_value
                 #set(int(params[0]))
                 #print(ujson.dumps('done'))
@@ -173,11 +166,35 @@ def do_command(cmd):
                     writeUSB('bad command')
             else:
                 writeUSB('bad command')
+        elif (cmd=='NAME?'): #For lph: NAME? lph 0 = cmd params[0].upper() int(params[1])
+            if len(params)>0:
+                if params[0].upper() == 'LPH':
+                    channel = int(params[1])
+                    if channel < len(lph_list):
+                        writeUSB(lph_list[channel])
+                    else:
+                        writeUSB('bad command')
+                else:
+                    channel = int(params[0])
+                    if channel < len(heaters):
+                        writeUSB(heaters[channel].name)
+                    else:
+                        writeUSB('bad command')
+            else:
+                writeUSB('bad command')
         elif (cmd=="NAME"):
             if len(params)>1:
                 channel = int(params[0])
                 heaters[channel].name = params[1]
                 #set(int(params[0]))
+                print(ujson.dumps('done'))
+            else:
+                writeUSB('bad command')
+        elif (cmd=='hph_i_limit?'):
+            writeUSB(hph_i_limit)
+        elif (cmd=='hph_i_limit'):
+            if len(params)>0:
+                hph_i_limit = int(params[0])
                 print(ujson.dumps('done'))
             else:
                 writeUSB('bad command')
