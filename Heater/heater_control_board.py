@@ -190,9 +190,9 @@ def do_command(cmd):
                 print(ujson.dumps('done'))
             else:
                 writeUSB('bad command')
-        elif (cmd=='hph_i_limit?'):
+        elif (cmd=='HPH_I_LIMIT?'):
             writeUSB(hph_i_limit)
-        elif (cmd=='hph_i_limit'):
+        elif (cmd=='HPH_I_LIMIT'):
             if len(params)>0:
                 hph_i_limit = int(params[0])
                 print(ujson.dumps('done'))
